@@ -23,6 +23,6 @@ namespace Azure.Functions.Domain
 
         [DataMember]
         [JsonProperty("originInfo")]
-        public int OriginInfo { get; set; }
+        public OriginInfo OriginInfo { get; set; }
     }
 }
