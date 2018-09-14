@@ -7,7 +7,7 @@ using System.Text;
 namespace Azure.Functions.Domain
 {
     [DataContract]
-    public class User
+    public class NarsRequestKey
     {
         [DataMember]
         [JsonProperty("userName")]

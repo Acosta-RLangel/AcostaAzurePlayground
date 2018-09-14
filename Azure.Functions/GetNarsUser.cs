@@ -5,6 +5,9 @@ using System.Net.Http;
 using System;
 using System.Text;
 using Microsoft.Extensions.Logging;
+using Azure.Functions.Domain;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace Azure.Functions
 {
@@ -17,19 +20,23 @@ namespace Azure.Functions
         /// <param name="log"></param>
         /// <returns></returns>
         [FunctionName("GetNarsUser")]
-        public static string Run([HttpTrigger(AuthorizationLevel.Function, "get", "post", Route = null)]HttpRequestMessage req, TraceWriter log)
+        public static NarsUser Run([HttpTrigger(AuthorizationLevel.Function, "get", "post", Route = null)]HttpRequestMessage req, TraceWriter log)
         {
             log.Info("GetNarsUser HttpTrigger executing...");
 
             var content = req.Content.ReadAsStringAsync().Result;
 
-            var response = Execute(content);
+            var response = NarsCaller.Execute(Environment.GetEnvironmentVariable("userUrl"), content);
 
-            var result = response.Content.ReadAsStringAsync().Result;
+            var responseResult = response.Content.ReadAsStringAsync().Result;
+
+            JObject respResult = (JObject)JsonConvert.DeserializeObject(responseResult);
+            NarsUser result = new NarsUser();
 
             if(response.IsSuccessStatusCode)
             {
-                log.Info(result);
+                log.Info("****SUCCESS****");
+                result = JsonConvert.DeserializeObject<NarsUser>(respResult["d"].ToString());
             }
             else
             {
@@ -38,7 +45,6 @@ namespace Azure.Functions
 
             return result;
         }
-
 
         /// <summary>
         /// This is the ACTIVITY trigger version of the GetNarsUser Azure Function.  This would be called by an Orchestrator.
@@ -50,12 +56,12 @@ namespace Azure.Functions
         {
             log.LogInformation("GetNarsUser ActivityTrigger executing...");
 
-            var response = Execute(content);
+            var response = NarsCaller.Execute(Environment.GetEnvironmentVariable("userUrl"), content);
             var result = response.Content.ReadAsStringAsync().Result;
 
             if (response.IsSuccessStatusCode)
             {
-                log.LogInformation(result);
+                log.LogInformation("****SUCCESS****");
             }
             else
             {
@@ -63,23 +69,6 @@ namespace Azure.Functions
             }
 
             return result;
-        }
-
-        /// <summary>
-        /// The actual work for this call. Shared amongst both of the above exposed endpoints.
-        /// </summary>
-        /// <param name="content"></param>
-        /// <returns></returns>
-        private static HttpResponseMessage Execute(string content)
-        {
-            using (HttpClient client = new HttpClient())
-            {
-                client.BaseAddress = new System.Uri(Environment.GetEnvironmentVariable("serviceBaseAddress"));
-                var inputContent = new StringContent(content, Encoding.UTF8, "application/json");
-                HttpResponseMessage response = client.PostAsync("/NarsUser.svc/json/GetNarsUser", inputContent).Result;
-                return response;
-            }
-
         }
     }
 }

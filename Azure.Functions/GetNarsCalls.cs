@@ -9,6 +9,9 @@ using System.Net.Http;
 using System;
 using System.Text;
 using Microsoft.Extensions.Logging;
+using Azure.Functions.Domain;
+using Newtonsoft.Json.Linq;
+using System.Collections.Generic;
 
 namespace Azure.Functions
 {
@@ -27,19 +30,22 @@ namespace Azure.Functions
 
             var input = req.Content.ReadAsStringAsync().Result;
 
-            var response = Execute(input);
-            var result = response.Content.ReadAsStringAsync().Result;
+            var response = NarsCaller.Execute(Environment.GetEnvironmentVariable("callsUrl"), input);
+            var responseData = response.Content.ReadAsStringAsync().Result;
 
             if (response.IsSuccessStatusCode)
             {
-                log.Info(result);
+                log.Info("****SUCCESS****");
             }
             else
             {
-                log.Warning(result);
+                log.Warning(responseData);
             }
 
-            return result;
+            JObject joResult = (JObject)JsonConvert.DeserializeObject(responseData);
+
+            List<NarsCall> result = JsonConvert.DeserializeObject<List<NarsCall>>(joResult["d"]["Calls"].ToString());
+            return JsonConvert.SerializeObject(result);
         }
 
         /// <summary>
@@ -52,12 +58,12 @@ namespace Azure.Functions
         {
             log.LogInformation("GetCalls ActivityTrigger executing...");
 
-            var response = Execute(content);
+            var response = NarsCaller.Execute(Environment.GetEnvironmentVariable("callsUrl"), content);
             var result = response.Content.ReadAsStringAsync().Result;
 
             if (response.IsSuccessStatusCode)
             {
-                log.LogInformation(result);
+                log.LogInformation("****SUCCESS****");
             }
             else
             {
@@ -65,16 +71,5 @@ namespace Azure.Functions
             }
             return result;
         }
-
-
-        private static HttpResponseMessage Execute(string content)
-        {
-            HttpClient client = new HttpClient();
-            client.BaseAddress = new Uri(Environment.GetEnvironmentVariable("serviceBaseURL"));
-            HttpContent inputContent = new StringContent(content, Encoding.UTF8, "application/json");
-            HttpResponseMessage response = client.PostAsync("/Calls.svc/json/GetCalls", inputContent).Result;
-            return response;
-        }
-
     }
 }

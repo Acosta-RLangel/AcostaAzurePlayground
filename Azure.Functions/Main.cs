@@ -28,8 +28,8 @@ namespace Azure.Functions
             return starter.CreateCheckStatusResponse(req, instanceId);
         }
 
-        [FunctionName("MyFunction")]
-        public static async Task<string> RunOrchestrator(
+        [FunctionName("CallsActivity")]
+        public static async Task<ReturnObject> RunOrchestrator(
             [OrchestrationTrigger] DurableOrchestrationContext context)
         {
             var Tasks1 = new List<Task<string>>();
@@ -37,7 +37,7 @@ namespace Azure.Functions
 
             string content = context.GetInput<string>();
 
-            Task<string> task = context.CallActivityAsync<string>("CallNarsUser", content);
+            Task<string> task = context.CallActivityAsync<string>("CallsActivity", content);
             Tasks1.Add(task);
             await Task.WhenAll(Tasks1);
 
@@ -47,7 +47,7 @@ namespace Azure.Functions
                 DateFormatHandling = DateFormatHandling.MicrosoftDateFormat
             };
 
-            var user = new User
+            var nrk = new NarsRequestKey
             {
                 OriginInfo = new OriginInfo
                 {
@@ -57,12 +57,12 @@ namespace Azure.Functions
                 UserName = (string)JSONObj["userName"],
                 Force = false,
                 CallStatus = 2
-
             };
-            var jsonObject = Newtonsoft.Json.JsonConvert.SerializeObject(user, microsoftDateFormatSettings);
+
+            var jsonObject = Newtonsoft.Json.JsonConvert.SerializeObject(nrk, microsoftDateFormatSettings);
 
             // Replace "hello" with the name of your Durable Activity Function.
-            Task<string> task1 = context.CallActivityAsync<string>("GetCalls", user);
+            Task<string> task1 = context.CallActivityAsync<string>("GetCalls", nrk);
             //Task<string> task2 =  context.CallActivityAsync<string>("MyFunction_Second", "Seattle");
             //Task<string> task3 =  context.CallActivityAsync<string>("MyFunction_Third", "London");
 
@@ -71,8 +71,14 @@ namespace Azure.Functions
             //parallelTasks.Add(task3);            
 
             await Task.WhenAll(parallelTasks);
-            return parallelTasks[0].Result;
+            
 
+            ReturnObject result = new ReturnObject
+            {
+                
+            }
+
+            return result;
         }
     }
 }
