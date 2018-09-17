@@ -71,12 +71,15 @@ namespace Azure.Functions
             //parallelTasks.Add(task3);            
 
             await Task.WhenAll(parallelTasks);
-            
+
+            NarsUser user = JsonConvert.DeserializeObject<NarsUser>(Tasks1[0].Result);
+            List<NarsCall> calls = JsonConvert.DeserializeObject<List<NarsCall>>(parallelTasks[0].Result);
 
             ReturnObject result = new ReturnObject
             {
-                
-            }
+                User = user,
+                Calls = calls
+            };
 
             return result;
         }

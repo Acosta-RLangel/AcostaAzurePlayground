@@ -18,10 +18,12 @@ namespace Azure.Functions
         /// </summary>
         /// <param name="req"></param>
         /// <param name="log"></param>
-        /// <returns></returns>
+        /// <returns>NarsHttpResponseObject containing the object</returns>
         [FunctionName("GetNarsUser")]
-        public static NarsUser Run([HttpTrigger(AuthorizationLevel.Function, "get", "post", Route = null)]HttpRequestMessage req, TraceWriter log)
+        public static NarsHttpResponseObject Run([HttpTrigger(AuthorizationLevel.Function, "get", "post", Route = null)]HttpRequestMessage req, TraceWriter log)
         {
+            NarsHttpResponseObject result = new NarsHttpResponseObject();
+
             log.Info("GetNarsUser HttpTrigger executing...");
 
             var content = req.Content.ReadAsStringAsync().Result;
@@ -31,16 +33,25 @@ namespace Azure.Functions
             var responseResult = response.Content.ReadAsStringAsync().Result;
 
             JObject respResult = (JObject)JsonConvert.DeserializeObject(responseResult);
-            NarsUser result = new NarsUser();
+            NarsUser userResult = new NarsUser();
 
             if(response.IsSuccessStatusCode)
             {
                 log.Info("****SUCCESS****");
-                result = JsonConvert.DeserializeObject<NarsUser>(respResult["d"].ToString());
+
+                result.ReturnType = "NarsUser";
+                result.ReturnObject = JsonConvert.DeserializeObject<NarsUser>(respResult["d"].ToString());
+                result.Success = true;
+                result.Exception = null;
             }
             else
             {
-                log.Warning(result);
+                log.Warning(responseResult);
+
+                result.ReturnType = "HttpResponse.Content.ToString";
+                result.ReturnObject = responseResult;
+                result.Success = false;
+                result.Exception = null;
             }
 
             return result;
