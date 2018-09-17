@@ -1,13 +1,9 @@
-
-using System.IO;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.WebJobs;
 using Microsoft.Azure.WebJobs.Extensions.Http;
 using Microsoft.Azure.WebJobs.Host;
 using Newtonsoft.Json;
 using System.Net.Http;
 using System;
-using System.Text;
 using Microsoft.Extensions.Logging;
 using Azure.Functions.Domain;
 using Newtonsoft.Json.Linq;
@@ -26,25 +22,42 @@ namespace Azure.Functions
         [FunctionName("GetCalls")]
         public static string Run([HttpTrigger(AuthorizationLevel.Function, "get", "post", Route = null)]HttpRequestMessage req, TraceWriter log)
         {
+            NarsHttpResponseObject result = new NarsHttpResponseObject();
+
             log.Info("GetCalls HttpTrigger executing...");
 
             var input = req.Content.ReadAsStringAsync().Result;
 
             var response = NarsCaller.Execute(Environment.GetEnvironmentVariable("callsUrl"), input);
-            var responseData = response.Content.ReadAsStringAsync().Result;
+            var responseResult = response.Content.ReadAsStringAsync().Result;
+
+            JObject joResult = (JObject)JsonConvert.DeserializeObject(responseResult);
 
             if (response.IsSuccessStatusCode)
             {
                 log.Info("****SUCCESS****");
+
+                result = new NarsHttpResponseObject
+                {
+                    ReturnType = "List<NarsCall>",
+                    ReturnObject = JsonConvert.DeserializeObject<List<NarsCall>>(joResult["d"]["Calls"].ToString()),
+                    Success = true,
+                    Exception = null
+                };
             }
             else
             {
-                log.Warning(responseData);
+                log.Warning(responseResult);
+
+                result = new NarsHttpResponseObject
+                {
+                    ReturnType = "HttpResponse.Content.ToString()",
+                    ReturnObject = responseResult,
+                    Success = false,
+                    Exception = null,
+                };
             }
 
-            JObject joResult = (JObject)JsonConvert.DeserializeObject(responseData);
-
-            List<NarsCall> result = JsonConvert.DeserializeObject<List<NarsCall>>(joResult["d"]["Calls"].ToString());
             return JsonConvert.SerializeObject(result);
         }
 
@@ -56,20 +69,42 @@ namespace Azure.Functions
         /// <returns></returns>
         public static string GetCalls([ActivityTrigger] string content, ILogger log)
         {
+            NarsHttpResponseObject result = new NarsHttpResponseObject();
+
             log.LogInformation("GetCalls ActivityTrigger executing...");
 
             var response = NarsCaller.Execute(Environment.GetEnvironmentVariable("callsUrl"), content);
-            var result = response.Content.ReadAsStringAsync().Result;
+            var responseResult = response.Content.ReadAsStringAsync().Result;
+
+            JObject joResult = (JObject)JsonConvert.DeserializeObject(responseResult);
 
             if (response.IsSuccessStatusCode)
             {
                 log.LogInformation("****SUCCESS****");
+
+                result = new NarsHttpResponseObject
+                {
+                    ReturnType = "List<NarsCall>",
+                    ReturnObject = JsonConvert.DeserializeObject<List<NarsCall>>(joResult["d"]["Calls"].ToString()),
+                    Success = true,
+                    Exception = null
+                };
             }
             else
             {
-                log.LogWarning(result);
+                log.LogWarning(responseResult);
+
+                result = new NarsHttpResponseObject
+                {
+                    ReturnType = "HttpResponse.Content.ToString()",
+                    ReturnObject = responseResult,
+                    Success = false,
+                    Exception = null,
+                };
             }
-            return result;
+
+
+            return JsonConvert.SerializeObject(result);
         }
     }
 }

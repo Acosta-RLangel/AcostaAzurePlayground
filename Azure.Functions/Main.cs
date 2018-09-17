@@ -13,7 +13,7 @@ namespace Azure.Functions
 {
     public static class Main
     {
-        [FunctionName("MyFunction_HttpStart")]
+        [FunctionName("EngageSync_HttpStart")]
         public static async Task<HttpResponseMessage> HttpStart(
             [HttpTrigger(AuthorizationLevel.Anonymous, "get", "post")]HttpRequestMessage req,
             [OrchestrationClient]DurableOrchestrationClient starter,
@@ -21,15 +21,16 @@ namespace Azure.Functions
         {
             string content = req.Content.ReadAsStringAsync().Result;
             // Function input comes from the request content.
-            string instanceId = await starter.StartNewAsync("MyFunction", content);
+            string instanceId = await starter.StartNewAsync("EngageSync", content);
 
             log.LogInformation($"Started orchestration with ID = '{instanceId}'.");
 
             return starter.CreateCheckStatusResponse(req, instanceId);
         }
 
-        [FunctionName("CallsActivity")]
-        public static async Task<ReturnObject> RunOrchestrator(
+
+        [FunctionName("EngageSync")]
+        public static async Task<string> RunOrchestrator(
             [OrchestrationTrigger] DurableOrchestrationContext context)
         {
             var Tasks1 = new List<Task<string>>();
@@ -37,7 +38,7 @@ namespace Azure.Functions
 
             string content = context.GetInput<string>();
 
-            Task<string> task = context.CallActivityAsync<string>("CallsActivity", content);
+            Task<string> task = context.CallActivityAsync<string>("CallNarsUser", content);
             Tasks1.Add(task);
             await Task.WhenAll(Tasks1);
 
@@ -72,16 +73,21 @@ namespace Azure.Functions
 
             await Task.WhenAll(parallelTasks);
 
-            NarsUser user = JsonConvert.DeserializeObject<NarsUser>(Tasks1[0].Result);
-            List<NarsCall> calls = JsonConvert.DeserializeObject<List<NarsCall>>(parallelTasks[0].Result);
+            NarsHttpResponseObject userResponseObject = JsonConvert.DeserializeObject<NarsHttpResponseObject>(Tasks1[0].Result);
+            NarsHttpResponseObject callsResponseObject = JsonConvert.DeserializeObject<NarsHttpResponseObject>(parallelTasks[0].Result);
 
-            ReturnObject result = new ReturnObject
+            List<CallReturnObject> callReturns = new List<CallReturnObject>();
+            callReturns.Add(new CallReturnObject("CallNarsUser", userResponseObject));
+            callReturns.Add(new CallReturnObject("GetCalls", callsResponseObject));
+            
+            EngageAPIReturnObject result = new EngageAPIReturnObject
             {
-                User = user,
-                Calls = calls
+                User = (NarsUser)userResponseObject.ReturnObject,
+                Calls = (List<NarsCall>)callsResponseObject.ReturnObject,
+                APICallReturnStatus = callReturns
             };
 
-            return result;
+            return JsonConvert.SerializeObject(result);
         }
     }
 }

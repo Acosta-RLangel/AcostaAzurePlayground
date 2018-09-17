@@ -3,7 +3,6 @@ using Microsoft.Azure.WebJobs.Extensions.Http;
 using Microsoft.Azure.WebJobs.Host;
 using System.Net.Http;
 using System;
-using System.Text;
 using Microsoft.Extensions.Logging;
 using Azure.Functions.Domain;
 using Newtonsoft.Json;
@@ -20,7 +19,7 @@ namespace Azure.Functions
         /// <param name="log"></param>
         /// <returns>NarsHttpResponseObject containing the object</returns>
         [FunctionName("GetNarsUser")]
-        public static NarsHttpResponseObject Run([HttpTrigger(AuthorizationLevel.Function, "get", "post", Route = null)]HttpRequestMessage req, TraceWriter log)
+        public static string Run([HttpTrigger(AuthorizationLevel.Function, "get", "post", Route = null)]HttpRequestMessage req, TraceWriter log)
         {
             NarsHttpResponseObject result = new NarsHttpResponseObject();
 
@@ -32,29 +31,33 @@ namespace Azure.Functions
 
             var responseResult = response.Content.ReadAsStringAsync().Result;
 
-            JObject respResult = (JObject)JsonConvert.DeserializeObject(responseResult);
-            NarsUser userResult = new NarsUser();
-
-            if(response.IsSuccessStatusCode)
+            if (response.IsSuccessStatusCode)
             {
                 log.Info("****SUCCESS****");
 
-                result.ReturnType = "NarsUser";
-                result.ReturnObject = JsonConvert.DeserializeObject<NarsUser>(respResult["d"].ToString());
-                result.Success = true;
-                result.Exception = null;
+                JObject respResult = (JObject)JsonConvert.DeserializeObject(responseResult);
+
+                result = new NarsHttpResponseObject
+                {
+                    ReturnType = "NarsUser",
+                    ReturnObject = JsonConvert.DeserializeObject<NarsUser>(respResult["d"].ToString()),
+                    Success = true,
+                    Exception = null
+                };
             }
             else
             {
                 log.Warning(responseResult);
-
-                result.ReturnType = "HttpResponse.Content.ToString";
-                result.ReturnObject = responseResult;
-                result.Success = false;
-                result.Exception = null;
+                result = new NarsHttpResponseObject
+                {
+                    ReturnType = "HttpResponse.Content.ToString",
+                    ReturnObject = responseResult,
+                    Success = false,
+                    Exception = null
+                };
             }
 
-            return result;
+            return JsonConvert.SerializeObject(result);
         }
 
         /// <summary>
@@ -65,21 +68,40 @@ namespace Azure.Functions
         /// <returns></returns>
         public static string CallNarsUser([ActivityTrigger] string content, ILogger log)
         {
+            NarsHttpResponseObject result = new NarsHttpResponseObject();
+
             log.LogInformation("GetNarsUser ActivityTrigger executing...");
 
             var response = NarsCaller.Execute(Environment.GetEnvironmentVariable("userUrl"), content);
-            var result = response.Content.ReadAsStringAsync().Result;
+            var responseResult = response.Content.ReadAsStringAsync().Result;
 
             if (response.IsSuccessStatusCode)
             {
                 log.LogInformation("****SUCCESS****");
+
+                JObject respResult = (JObject)JsonConvert.DeserializeObject(responseResult);
+
+                result = new NarsHttpResponseObject
+                {
+                    ReturnType = "NarsUser",
+                    ReturnObject = JsonConvert.DeserializeObject<NarsUser>(respResult["d"].ToString()),
+                    Success = true,
+                    Exception = null
+                };
             }
             else
             {
-                log.LogWarning(result);
+                log.LogWarning(responseResult);
+                result = new NarsHttpResponseObject
+                {
+                    ReturnType = "HttpResponse.Content.ToString",
+                    ReturnObject = responseResult,
+                    Success = false,
+                    Exception = null
+                };
             }
 
-            return result;
+            return JsonConvert.SerializeObject(result);
         }
     }
 }
